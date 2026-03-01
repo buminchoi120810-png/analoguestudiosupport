@@ -14,15 +14,17 @@ const fs = require('fs');
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
+        GatewayIntentBits.GuildMessages
     ]
 });
 
-const ROLE_ID = "1477654431750422600";
+// ================== 설정 ==================
+const ROLE_ID = "1477654431750422600"; 
+const PANEL_CHANNEL_ID = "1477661501686026315";
 const COUNTER_FILE = "./ticketCount.json";
+// ===========================================
 
-// 티켓번호 불러오기
+// 티켓 번호 불러오기
 let ticketCount = 1;
 if (fs.existsSync(COUNTER_FILE)) {
     ticketCount = JSON.parse(fs.readFileSync(COUNTER_FILE)).count;
@@ -32,32 +34,30 @@ function saveTicketCount() {
     fs.writeFileSync(COUNTER_FILE, JSON.stringify({ count: ticketCount }));
 }
 
-client.once('ready', () => {
+client.once('ready', async () => {
     console.log(`${client.user.tag} 온라인`);
-});
 
-client.on('messageCreate', async (message) => {
-    if (message.content === "!문의봇") {
+    const channel = await client.channels.fetch(PANEL_CHANNEL_ID);
 
-        const embed = new EmbedBuilder()
-            .setColor("#AEEFFF")
-            .setTitle("Analogue Studio 에 문의하기")
-            .setDescription("아래 문의하기 버튼을 누르면 문의채널이 생성됩니다");
+    const embed = new EmbedBuilder()
+        .setColor("#AEEFFF")
+        .setTitle("Analogue Studio 에 문의하기")
+        .setDescription("아래 문의하기 버튼을 누르면 문의채널이 생성됩니다");
 
-        const button = new ButtonBuilder()
-            .setCustomId("create_ticket")
-            .setLabel("📩 문의하기")
-            .setStyle(ButtonStyle.Primary);
+    const button = new ButtonBuilder()
+        .setCustomId("create_ticket")
+        .setLabel("📩 문의하기")
+        .setStyle(ButtonStyle.Primary);
 
-        const row = new ActionRowBuilder().addComponents(button);
+    const row = new ActionRowBuilder().addComponents(button);
 
-        message.channel.send({ embeds: [embed], components: [row] });
-    }
+    await channel.send({ embeds: [embed], components: [row] });
 });
 
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
+    // 문의 생성
     if (interaction.customId === "create_ticket") {
 
         const channelName = `support-${String(ticketCount).padStart(4, '0')}`;
@@ -74,11 +74,17 @@ client.on('interactionCreate', async (interaction) => {
                 },
                 {
                     id: interaction.user.id,
-                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel,
+                        PermissionsBitField.Flags.SendMessages
+                    ]
                 },
                 {
                     id: ROLE_ID,
-                    allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel,
+                        PermissionsBitField.Flags.SendMessages
+                    ]
                 }
             ]
         });
@@ -100,12 +106,18 @@ client.on('interactionCreate', async (interaction) => {
             components: [row]
         });
 
-        interaction.reply({ content: `문의 채널이 생성되었습니다: ${channel}`, ephemeral: true });
+        await interaction.reply({
+            content: `✅ 문의 채널이 생성되었습니다: ${channel}`,
+            ephemeral: true
+        });
     }
 
+    // 문의 삭제
     if (interaction.customId === "close_ticket") {
-        await interaction.reply({ content: "채널이 삭제됩니다.", ephemeral: true });
-        setTimeout(() => interaction.channel.delete().catch(() => {}), 2000);
+        await interaction.reply({ content: "⏳ 채널이 삭제됩니다.", ephemeral: true });
+        setTimeout(() => {
+            interaction.channel.delete().catch(() => {});
+        }, 2000);
     }
 });
 
